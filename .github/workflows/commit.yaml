@@ -21,6 +21,8 @@ jobs:
       run: cargo make checks
   Coverage:
     runs-on: ubuntu-latest
+    env:
+      CODECOV_TOKEN_AVAILABLE: ${{ secrets.CODECOV_TOKEN != '' }}
     steps:
     - uses: actions/checkout@v4
     - uses: actions-rust-lang/setup-rust-toolchain@v1
@@ -31,7 +33,13 @@ jobs:
     - uses: taiki-e/install-action@cargo-llvm-cov
     - name: Coverage
       run: cargo make codecov-coverage
+    - uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: target/codecov.json
+        if-no-files-found: error
     - uses: codecov/codecov-action@v4
+      if: env.CODECOV_TOKEN_AVAILABLE == 'true'
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         fail_ci_if_error: true
