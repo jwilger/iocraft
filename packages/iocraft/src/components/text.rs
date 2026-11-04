@@ -95,6 +95,17 @@ pub struct Text {
 }
 
 impl Text {
+    /// Returns plain wrapped rows, preserving explicit blank lines.
+    ///
+    /// ANSI sequences are stripped. Style and hyperlink metadata are not returned.
+    /// A grapheme wider than `width` remains whole and can exceed that width.
+    pub fn wrap_lines(content: &str, width: usize) -> Vec<String> {
+        Self::do_wrap(&strip_ansi(content), width)
+            .split('\n')
+            .map(str::to_owned)
+            .collect()
+    }
+
     pub(crate) fn measure_func(content: String, text_wrap: TextWrap) -> MeasureFunc {
         Box::new(move |known_size, available_space, _| {
             let content = Text::wrap(&content, text_wrap, known_size.width, available_space.width);

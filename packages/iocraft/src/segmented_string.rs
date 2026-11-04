@@ -8,7 +8,19 @@ use unicode_width::UnicodeWidthStr;
 // XXX: This can exceed `str::width`, which narrows some sequences that span graphemes, such as
 // Lam-Alef. The canvas draws graphemes separately, so layout must measure them that way too.
 pub(crate) fn grapheme_width(text: &str) -> usize {
-    text.graphemes(true).map(UnicodeWidthStr::width).sum()
+    text.graphemes(true).fold(0, |width, grapheme| {
+        add_grapheme_width(width, grapheme.width())
+    })
+}
+
+// The painter reserves one cell for an initial zero-width group; later zero-width graphemes
+// attach to the preceding group instead of reserving another cell.
+fn add_grapheme_width(width: usize, next: usize) -> usize {
+    if width == 0 {
+        next.max(1)
+    } else {
+        width + next
+    }
 }
 
 pub(crate) fn is_whitespace_grapheme(grapheme: &str) -> bool {
@@ -213,17 +225,19 @@ impl<'a> SegmentedString<'a> {
                 }
             }
             let chunk_end = chunk.last().map_or(chunk_start, |g| g.end);
-            let chunk_width: usize = chunk.iter().map(|g| g.width).sum();
+            let next_width = chunk
+                .iter()
+                .fold(line.width, |width, g| add_grapheme_width(width, g.width));
             let trailing_whitespace = chunk.iter().rev().take_while(|g| g.is_whitespace).count();
             let trailing_whitespace_width: usize = chunk[chunk.len() - trailing_whitespace..]
                 .iter()
                 .map(|g| g.width)
                 .sum();
 
-            if line.width + chunk_width - trailing_whitespace_width <= width {
+            if next_width - trailing_whitespace_width <= width {
                 // Everything fits into the current line
                 line.end = chunk_end;
-                line.width += chunk_width;
+                line.width = next_width;
             } else {
                 // Break if necessary, then add more lines
                 if line.width > 0 {
@@ -233,13 +247,13 @@ impl<'a> SegmentedString<'a> {
                 for (i, g) in chunk.iter().enumerate() {
                     if i < chunk.len() - trailing_whitespace
                         && line.width > 0
-                        && line.width + g.width > width
+                        && add_grapheme_width(line.width, g.width) > width
                     {
                         ranges.push(line);
                         line = LineRange::at(g.start);
                     }
                     line.end = g.end;
-                    line.width += g.width;
+                    line.width = add_grapheme_width(line.width, g.width);
                 }
             }
 
