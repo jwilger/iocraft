@@ -524,7 +524,8 @@ impl<'a> Tree<'a> {
                 break;
             }
             // poll input again to prevent a busy component from starving it
-            if let Some(result) = term.wait().now_or_never() {
+            // Keep the render task's waker registered if input is still pending.
+            if let Poll::Ready(result) = futures::poll!(core::pin::pin!(term.wait())) {
                 result?;
             }
             if self.system_context.should_exit() || term.received_ctrl_c() {

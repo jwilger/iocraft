@@ -110,6 +110,11 @@ pub struct Canvas {
 }
 
 impl Canvas {
+    /// Returns the occupied terminal columns for one line of text.
+    pub fn text_width(text: &str) -> usize {
+        crate::segmented_string::grapheme_width(text)
+    }
+
     /// Constructs a new canvas with the given dimensions.
     pub fn new(width: usize, height: usize) -> Self {
         Self {
